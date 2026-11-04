@@ -2,7 +2,7 @@ name: Build Android APK
 
 on:
   push:
-    branches: [ main, android-les ]
+    branches: [ main ]
   workflow_dispatch:
 
 jobs:
@@ -18,20 +18,29 @@ jobs:
         with:
           distribution: temurin
           java-version: '21'
-
       - name: Install NDK and CMake
         run: |
           SDK="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
           yes | "$SDK" --licenses > /dev/null 2>&1 || true
-          "$SDK" "ndk;27.0.12077973" "cmake;4.1.2" "platforms;android-36"
-          ls -d "$ANDROID_HOME/cmake/4.1.2" || echo "!!! cmake 4.1.2 MISSING"
-
+          "$SDK" "ndk;27.0.12077973" "cmake;4.1.2" "platforms;android-36" || true
+          echo "### SDK check" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          ls -1 "$ANDROID_HOME/cmake" >> $GITHUB_STEP_SUMMARY 2>&1 || true
+          ls -l "$ANDROID_HOME/cmake/4.1.2/bin/cmake" >> $GITHUB_STEP_SUMMARY 2>&1 || echo "cmake 4.1.2 MISSING" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
       - name: Build debug APK
         run: |
           cd MiniCPM-V-demo-Android
-          ./gradlew assembleDebug --no-daemon --stacktrace
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: app-debug
-          path: MiniCPM-V-demo-Android/app/build/outputs/apk/debug/*.apk
+          ./gradlew assembleDebug --no-daemon --stacktrace > /tmp/b.log 2>&1
+          rc=$?
+          if [ $rc -ne 0 ]; then
+            echo "### gradle failed" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            grep -n -E "FAILURE:|What went wrong|^e: |error:|Caused by" /tmp/b.log | head -50 >> $GITHUB_STEP_SUMMARY || true
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            echo "### tail" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            tail -80 /tmp/b.log >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            exit $rc
+          fi
