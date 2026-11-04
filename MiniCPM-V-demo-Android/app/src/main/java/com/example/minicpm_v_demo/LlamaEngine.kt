@@ -967,7 +967,7 @@ class LlamaEngine private constructor(
                 File(pathToModel).let {
                     require(it.exists()) { "File not found: $pathToModel" }
                     require(it.isFile) { "Not a valid file: $pathToModel" }
-                    require(it.canRead()) { "Cannot read file: $pathToModel" }
+                    require(runCatching { java.io.FileInputStream(it).close() }.isSuccess) { "Cannot read file: $pathToModel exists=${it.exists()} len=${it.length()} canRead=${it.canRead()}" }
                 }
 
                 Log.i(TAG, "Loading model... \n$pathToModel")
