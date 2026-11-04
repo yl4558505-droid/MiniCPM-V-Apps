@@ -50,15 +50,8 @@ jobs:
       - name: Show errors
         if: failure()
         run: |
-          txt=$(sed -n '/What went wrong/,$p' /tmp/b.log 2>/dev/null | head -12)
-          [ -z "$txt" ] && txt=$(tail -12 /tmp/b.log 2>/dev/null)
-          [ -z "$txt" ] && txt="gradle log missing"
-          echo "$txt" | while IFS= read -r l; do echo "::error::$l"; done
-
-      - name: Show errors
-        if: failure()
-        run: |
-          txt=$(sed -n '/What went wrong/,$p' /tmp/b.log 2>/dev/null | head -12)
-          [ -z "$txt" ] && txt=$(tail -12 /tmp/b.log 2>/dev/null)
-          [ -z "$txt" ] && txt="gradle log missing"
-          echo "$txt" | while IFS= read -r l; do echo "::error::$l"; done
+          grep -n -iE "error|fatal|FAILED" /tmp/b.log | tail -40 > /tmp/e.txt || true
+          cat /tmp/e.txt
+          while IFS= read -r l; do echo "::error::$l"; done < /tmp/e.txt
+          echo "---- last 30 ----"
+          tail -30 /tmp/b.log
