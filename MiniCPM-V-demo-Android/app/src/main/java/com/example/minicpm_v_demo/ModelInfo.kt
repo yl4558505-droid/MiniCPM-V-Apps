@@ -205,7 +205,7 @@ data class ModelInfo(
                 msRepo = "zerg13/MiniCPM-V-Apps-gguf",
                 mmprojMd5 = "2a705dfc7184f504086f48bd109e27a2",
                 moeExpertsSubdir = "experts",
-                moeSlotBank = 32,
+                moeSlotBank = 8,
                 extraFiles = buildList {
                     val dir = "MiniCPM-V-4.7-35B-A3B"
                     add(ModelExtraFile("$dir/experts/manifest.json",
