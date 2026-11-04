@@ -28,6 +28,16 @@ jobs:
           ls -1 "$ANDROID_HOME/cmake" >> $GITHUB_STEP_SUMMARY 2>&1 || true
           ls -l "$ANDROID_HOME/cmake/4.1.2/bin/cmake" >> $GITHUB_STEP_SUMMARY 2>&1 || echo "cmake 4.1.2 MISSING" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
+      - name: Patch submodule for Android
+        run: |
+          f=$(grep -rl "F_NOCACHE" llama.cpp-omni --include=*.cpp --include=*.cc --include=*.c --include=*.h | head -1)
+          echo "target: $f"
+          [ -z "$f" ] && { echo "::error::F_NOCACHE not found"; exit 1; }
+          grep -n -B5 -A5 "F_NOCACHE" "$f" | while IFS= read -r l; do echo "::warning::CTX $l"; done
+          if ! grep -q TABBITS_FNOCACHE_SHIM "$f"; then
+            printf '%s\n' '// TABBITS_FNOCACHE_SHIM' '#ifndef F_NOCACHE' '#define F_NOCACHE F_GETFD' '#endif' | cat - "$f" > /tmp/p.c
+            mv /tmp/p.c "$f"
+          fi
       - name: Build debug APK
         run: |
           cd MiniCPM-V-demo-Android
