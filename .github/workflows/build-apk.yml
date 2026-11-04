@@ -46,3 +46,19 @@ jobs:
             grep -E "e: file|CMake Error|Unresolved|FAILURE:" /tmp/b.log | head -15 | while IFS= read -r l; do echo "::error::$l"; done
             exit $rc
           fi
+
+      - name: Show errors
+        if: failure()
+        run: |
+          txt=$(sed -n '/What went wrong/,$p' /tmp/b.log 2>/dev/null | head -12)
+          [ -z "$txt" ] && txt=$(tail -12 /tmp/b.log 2>/dev/null)
+          [ -z "$txt" ] && txt="gradle log missing"
+          echo "$txt" | while IFS= read -r l; do echo "::error::$l"; done
+
+      - name: Show errors
+        if: failure()
+        run: |
+          txt=$(sed -n '/What went wrong/,$p' /tmp/b.log 2>/dev/null | head -12)
+          [ -z "$txt" ] && txt=$(tail -12 /tmp/b.log 2>/dev/null)
+          [ -z "$txt" ] && txt="gradle log missing"
+          echo "$txt" | while IFS= read -r l; do echo "::error::$l"; done
