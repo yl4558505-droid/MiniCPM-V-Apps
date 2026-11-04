@@ -1,0 +1,37 @@
+name: Build Android APK
+
+on:
+  push:
+    branches: [ main, android-les ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 1
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Install NDK and CMake
+        run: |
+          SDK="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          yes | "$SDK" --licenses > /dev/null 2>&1 || true
+          "$SDK" "ndk;27.0.12077973" "cmake;4.1.2" "platforms;android-36"
+          ls -d "$ANDROID_HOME/cmake/4.1.2" || echo "!!! cmake 4.1.2 MISSING"
+
+      - name: Build debug APK
+        run: |
+          cd MiniCPM-V-demo-Android
+          ./gradlew assembleDebug --no-daemon --stacktrace
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: app-debug
+          path: MiniCPM-V-demo-Android/app/build/outputs/apk/debug/*.apk
