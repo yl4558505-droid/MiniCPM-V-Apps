@@ -28,6 +28,14 @@ import android.content.Context
  * downloaded file's MD5 and deletes + raises on mismatch. Mirrors iOS demo
  * `MBV4ModelDownloadManager` / `MBV46ModelDownloadManager`.
  */
+/** Extra file beyond the three fixed slots (used by 35B LES expert shards). */
+data class ModelExtraFile(
+    val remotePath: String,
+    val localPath: String,
+    val bytes: Long = 0L,
+    val md5: String? = null
+)
+
 data class ModelInfo(
     val id: String,
     val displayName: String,
@@ -47,7 +55,13 @@ data class ModelInfo(
     val directAcousticUrl: String? = null,
     val ggufMd5: String? = null,
     val mmprojMd5: String? = null,
-    val acousticMd5: String? = null
+    val acousticMd5: String? = null,
+    /** Additional files (e.g. LES expert shards) fetched after the fixed slots. */
+    val extraFiles: List<ModelExtraFile> = emptyList(),
+    /** Sub-directory under the model dir that holds the MoE expert shards. */
+    val moeExpertsSubdir: String? = null,
+    /** Resident routed expert slots per layer; 0 = LES disabled. */
+    val moeSlotBank: Int = 0
 ) {
     /** True for text-only models that have no vision projector. */
     val isTextOnly: Boolean
@@ -176,6 +190,31 @@ data class ModelInfo(
                 directAcousticUrl = null,
                 ggufMd5 = "d8cd571526464d225187d326caa289be",
                 acousticMd5 = "0f16229cfffe935102d21433f6969f8b"
+            ),
+            // MiniCPM-V 4.7 35B-A3B — routed experts stripped out of the main
+            // gguf (`-les` variant) and streamed from experts/ on demand.
+            // Mirrors iOS MiniCPMV47Const. Two fields must stay in sync with
+            // the upstream layout: 40 shards named layer_%03d.bin, 330 MiB each.
+            ModelInfo(
+                id = "minicpm-v-4_7-35b-a3b",
+                displayName = "MiniCPM-V 4.7 35B-A3B (Q3-im LES)",
+                descriptionResName = "model_desc_v47",
+                ggufFileName = "MiniCPM-V-4_7-35B-A3B-mix_q3gud_im-les.gguf",
+                mmprojFileName = "mmproj-model-f16.gguf",
+                hfRepo = "tc-mb/MiniCPM-V-Apps-gguf",
+                msRepo = "zerg13/MiniCPM-V-Apps-gguf",
+                mmprojMd5 = "2a705dfc7184f504086f48bd109e27a2",
+                moeExpertsSubdir = "experts",
+                moeSlotBank = 32,
+                extraFiles = buildList {
+                    val dir = "MiniCPM-V-4.7-35B-A3B"
+                    add(ModelExtraFile("$dir/experts/manifest.json",
+                                       "experts/manifest.json", 73_668L))
+                    for (i in 0 until 40) {
+                        val n = "layer_%03d.bin".format(i)
+                        add(ModelExtraFile("$dir/experts/$n", "experts/$n", 346_030_080L))
+                    }
+                }
             )
         )
 

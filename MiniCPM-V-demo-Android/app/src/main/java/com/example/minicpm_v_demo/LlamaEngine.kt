@@ -396,6 +396,24 @@ class LlamaEngine private constructor(
             if (!model.isTextOnly && !model.isTts && model.mmprojFileName != null) {
                 files.add(FileSpec(model.mmprojFileName, mmprojSources, model.mmprojMd5))
             }
+            // LES extra files (35B-A3B expert shards). Remote paths are relative
+            // to the HF/MS repo root; local paths keep the experts/ subdir so
+            // moe_experts_path can point straight at it.
+            if (model.extraFiles.isNotEmpty()) {
+                val extraHf = model.hfRepo?.takeIf { it.isNotBlank() }
+                    ?.let { "https://huggingface.co/$it/resolve/${model.hfBranch}" }
+                val extraMs = model.msRepo?.takeIf { it.isNotBlank() }
+                    ?.let { "https://www.modelscope.cn/models/$it/resolve/${model.msBranch}" }
+                model.moeExpertsSubdir?.let { File(dir, it).mkdirs() }
+                for (ef in model.extraFiles) {
+                    val srcs = mutableListOf<FileSource>()
+                    if (extraHf != null) srcs.add(FileSource("HuggingFace", URL("$extraHf/${ef.remotePath}")))
+                    if (extraMs != null) srcs.add(FileSource("ModelScope", URL("$extraMs/${ef.remotePath}")))
+                    if (srcs.isEmpty()) throw RuntimeException(
+                        "Model ${model.id} extra file ${ef.localPath} has no source")
+                    files.add(FileSpec(ef.localPath, srcs, ef.md5))
+                }
+            }
 
             val racedLabel = files.first().sources.joinToString("+") { it.label }
             onProgress(context.getString(R.string.download_race_start, racedLabel))
@@ -877,7 +895,7 @@ class LlamaEngine private constructor(
     private var _readyForSystemPrompt = false
 
     private external fun init(nativeLibDir: String)
-    private external fun load(modelPath: String): Int
+    private external fun load(modelPath: String, moeExpertsPath: String, moeSlotBank: Int): Int
     // image_max_slice_nums: 1..9 (or -1 for model default).  See JNI for
     // the semantics; the upper layer should pass MIN_IMAGE_SLICE..MAX_IMAGE_SLICE.
     private external fun loadMmproj(mmprojPath: String, imageMaxSliceNums: Int): Int
@@ -939,7 +957,7 @@ class LlamaEngine private constructor(
         }
     }
 
-    suspend fun loadModel(pathToModel: String, pathToMmproj: String? = null) =
+    suspend fun loadModel(pathToModel: String, pathToMmproj: String? = null, pathToMoeExperts: String? = null, moeSlotBank: Int = 0) =
         withContext(llamaDispatcher) {
             check(_state.value is LlamaState.Initialized) {
                 "Cannot load model in ${_state.value.javaClass.simpleName}!"
@@ -955,7 +973,7 @@ class LlamaEngine private constructor(
                 Log.i(TAG, "Loading model... \n$pathToModel")
                 _readyForSystemPrompt = false
                 _state.value = LlamaState.LoadingModel
-                load(pathToModel).let {
+                load(pathToModel, pathToMoeExperts ?: "", moeSlotBank).let {
                     if (it != 0) throw RuntimeException("Failed to load model (code: $it)")
                 }
 

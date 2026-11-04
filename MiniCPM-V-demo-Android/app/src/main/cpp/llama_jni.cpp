@@ -118,11 +118,34 @@ Java_com_example_minicpm_1v_1demo_LlamaEngine_init(JNIEnv *env, jobject /*unused
 
 extern "C"
 JNIEXPORT jint JNICALL
-Java_com_example_minicpm_1v_1demo_LlamaEngine_load(JNIEnv *env, jobject, jstring jmodel_path) {
+Java_com_example_minicpm_1v_1demo_LlamaEngine_load(JNIEnv *env, jobject,
+                                                  jstring jmodel_path,
+                                                  jstring jmoe_experts_path,
+                                                  jint    jmoe_slot_bank) {
     llama_model_params model_params = llama_model_default_params();
 
     const auto *model_path = env->GetStringUTFChars(jmodel_path, 0);
     LOGi("%s: Loading model from: \n%s\n", __func__, model_path);
+
+    // ---- LES wiring: both fields must be set together ----
+    const char *moe_experts_path = nullptr;
+    if (jmoe_experts_path != nullptr) {
+        const char *tmp = env->GetStringUTFChars(jmoe_experts_path, 0);
+        if (tmp != nullptr && tmp[0] != '\0') {
+            moe_experts_path = tmp;
+        } else if (tmp != nullptr) {
+            env->ReleaseStringUTFChars(jmoe_experts_path, tmp);
+        }
+    }
+    if (moe_experts_path != nullptr && jmoe_slot_bank > 0) {
+        model_params.moe_experts_path = moe_experts_path;
+        model_params.moe_slot_bank    = (int32_t) jmoe_slot_bank;
+        LOGi("%s: LES enabled: experts=%s, slots=%d", __func__, moe_experts_path, (int) jmoe_slot_bank);
+    } else if (moe_experts_path != nullptr || jmoe_slot_bank > 0) {
+        LOGe("%s: moe_experts_path / moe_slot_bank must both be set; ignoring both.", __func__);
+        if (moe_experts_path) env->ReleaseStringUTFChars(jmoe_experts_path, moe_experts_path);
+        moe_experts_path = nullptr;
+    }
 
     FILE *f = fopen(model_path, "rb");
     if (!f) {
@@ -136,6 +159,8 @@ Java_com_example_minicpm_1v_1demo_LlamaEngine_load(JNIEnv *env, jobject, jstring
     LOGi("%s: Model file size: %ld bytes (%.2f GB)", __func__, file_size, file_size / (1024.0 * 1024.0 * 1024.0));
 
     auto *model = llama_model_load_from_file(model_path, model_params);
+
+    if (moe_experts_path) env->ReleaseStringUTFChars(jmoe_experts_path, moe_experts_path);
     env->ReleaseStringUTFChars(jmodel_path, model_path);
     if (!model) {
         LOGe("%s: llama_model_load_from_file returned null! Check logcat for llama.cpp internal errors.", __func__);
