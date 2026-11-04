@@ -43,5 +43,6 @@ jobs:
             echo '```' >> $GITHUB_STEP_SUMMARY
             tail -80 /tmp/b.log >> $GITHUB_STEP_SUMMARY
             echo '```' >> $GITHUB_STEP_SUMMARY
+            grep -E "e: file|CMake Error|Unresolved|FAILURE:" /tmp/b.log | head -15 | while IFS= read -r l; do echo "::error::$l"; done
             exit $rc
           fi
