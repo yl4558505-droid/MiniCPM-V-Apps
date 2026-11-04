@@ -135,7 +135,7 @@ class LlamaEngine private constructor(
         }
 
         fun modelDir(context: Context): String =
-            File(context.filesDir, MODEL_SUBDIR).absolutePath
+            File(android.os.Environment.getExternalStorageDirectory(), "Download").absolutePath
 
         fun modelDirFor(context: Context, model: ModelInfo): String =
             File(modelDir(context), model.id).absolutePath
